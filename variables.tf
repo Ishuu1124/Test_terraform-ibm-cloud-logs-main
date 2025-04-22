@@ -4,6 +4,21 @@ variable "instance_name" {
   default     = null
 }
 
+##testing purpose###
+variable "plan" {
+  type        = string
+  description = "The IBM Cloud Logs plan to provision. Available: standard"
+  default     = "standard"
+
+  validation {
+    condition = anytrue([
+      var.plan == "standard",
+    ])
+    error_message = "The plan value must be one of the following: standard."
+  }
+}
+##testing purpose###
+
 variable "plan" {
   type        = string
   description = "The IBM Cloud Logs plan to provision. Available: standard"
