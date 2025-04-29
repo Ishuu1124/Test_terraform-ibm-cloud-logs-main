@@ -1,268 +1,140 @@
-variable "instance_name" {
+##############################################################################
+# Random variables - scattered
+##############################################################################
+variable "clusterConfigEndpointType" {
+  description = "Which endpoint to use for accessing cluster configuration: default, private, vpe, or link."
   type        = string
-  description = "The name of the IBM Cloud Logs instance to create. Defaults to 'cloud-logs-<region>'"
-  default     = null
-}
-
-variable "plan" {
-  type        = string
-  description = "The IBM Cloud Logs plan to provision. Available: standard"
-  default     = "standard"
-
+  default     = "default"
   validation {
-    condition = anytrue([
-      var.plan == "standard",
-    ])
-    error_message = "The plan value must be one of the following: standard."
+    error_message = "Wrong endpoint type! Must be default, private, vpe or link."
+    condition     = contains(["default", "private", "vpe", "link"], var.clusterConfigEndpointType)
   }
 }
 
-variable "resource_tags" {
+variable "enable_privateEndpoint" {
+  description = "Whether to use private endpoint."
+  type        = bool
+}
+
+variable "id_resource_group" {
+  type        = string
+  description = "Resource group id for the cluster"
+}
+
+variable "clusterVpcSubnetIds" {
   type        = list(string)
-  description = "Tags associated with the IBM Cloud Logs instance (Optional, array of strings)."
-  default     = []
+  description = "List of subnet IDs to use."
 }
 
-variable "access_tags" {
+variable "enableMonitoring" {
+  type        = bool
+  description = "Enable cloud monitoring."
+}
+
+variable "isVpcCluster" {
+  description = "Is this a VPC cluster."
+  type        = bool
+  default     = true
+}
+
+variable "cloudMonitoringAgentTags" {
   type        = list(string)
-  description = "A list of access tags to apply to the IBM Cloud Logs instance created by the module. For more information, see https://cloud.ibm.com/docs/account?topic=account-access-tags-tutorial."
-  default     = []
+  description = "Tags for Cloud Monitoring agent."
 }
 
-variable "retention_period" {
-  type        = number
-  description = "The number of days IBM Cloud Logs will retain the logs data in Priority insights. Allowed values: 7, 14, 30, 60, 90."
-  default     = 7
-
-  validation {
-    condition     = contains([7, 14, 30, 60, 90], var.retention_period)
-    error_message = "Valid values 'retention_period' are: 7, 14, 30, 60, 90"
-  }
-}
-
-variable "data_storage" {
-  type = object({
-    logs_data = optional(object({
-      enabled              = optional(bool, false)
-      bucket_crn           = optional(string)
-      bucket_endpoint      = optional(string)
-      skip_cos_auth_policy = optional(bool, false)
-    }), {})
-    metrics_data = optional(object({
-      enabled              = optional(bool, false)
-      bucket_crn           = optional(string)
-      bucket_endpoint      = optional(string)
-      skip_cos_auth_policy = optional(bool, false)
-    }), {})
-    }
-  )
-  default = {
-    logs_data    = null,
-    metrics_data = null
-  }
-  validation {
-    condition     = (var.data_storage.logs_data.bucket_crn == null && var.data_storage.metrics_data.bucket_crn == null) || (var.data_storage.logs_data.bucket_crn != var.data_storage.metrics_data.bucket_crn)
-    error_message = "The same bucket cannot be used as both your data bucket and your metrics bucket."
-  }
-  validation {
-    error_message = "`bucket_crn` and `bucket_endpoint` must be included if logs_data `enabled` is true."
-    condition = (
-      lookup(var.data_storage.logs_data, "enabled", null) == null
-      ) || (
-      lookup(var.data_storage.logs_data, "enabled", false) == false
-      ) || (
-      lookup(var.data_storage.logs_data, "bucket_crn", null) != null &&
-      lookup(var.data_storage.logs_data, "bucket_endpoint", null) != null &&
-      lookup(var.data_storage.logs_data, "enabled", false) == true
-    )
-  }
-  validation {
-    error_message = "`bucket_crn` and `bucket_endpoint` must be included if metrics_data `enabled` is true."
-    condition = (
-      lookup(var.data_storage.metrics_data, "enabled", null) == null
-      ) || (
-      lookup(var.data_storage.metrics_data, "enabled", false) == false
-      ) || (
-      lookup(var.data_storage.metrics_data, "bucket_crn", null) != null &&
-      lookup(var.data_storage.metrics_data, "bucket_endpoint", null) != null &&
-      lookup(var.data_storage.metrics_data, "enabled", false) == true
-    )
-  }
-  description = "A logs data bucket and a metrics bucket in IBM Cloud Object Storage to store your IBM Cloud Logs data for long term storage, search, analysis and alerting."
-}
-
-variable "service_endpoints" {
-  description = "The type of the service endpoint that will be set for the IBM Cloud Logs instance. Allowed values: public-and-private."
+variable "cosInstanceCrn" {
+  description = "CRN of the COS instance to use."
   type        = string
-  default     = "public-and-private"
-  validation {
-    condition     = contains(["public-and-private"], var.service_endpoints)
-    error_message = "The specified service_endpoints is not a valid selection. Allowed values: public-and-private."
-  }
 }
 
-##############################################################################
-# Event Notification
-##############################################################################
-
-variable "ex_event_notifications_instances" {
-  type = list(object({
-    en_instance_id      = string
-    en_region           = string
-    en_integration_name = optional(string)
-    skip_en_auth_policy = optional(bool, false)
-  }))
-  default     = []
-  description = "List of Event Notifications instance details for routing critical events that occur in your IBM Cloud Logs."
+variable "kmsInstanceName" {
+  description = "The name of Key Management Service instance."
+  type        = string
 }
 
-##############################################################################
-# Logs Routing
-##############################################################################
-
-variable "routing_tenant_regions" {
-  type        = list(any)
-  default     = []
-  description = "Pass a list of regions to create a tenant for that is targetted to the Cloud Logs instance created by this module. To manage platform logs that are generated by IBM Cloud® services in a region of IBM Cloud, you must create a tenant in each region that you operate. Leave the list empty if you don't want to create any tenants. NOTE: You can only have 1 tenant per region in an account."
-  nullable    = false
+variable "apiKeySm" {
+  description = "API key for secrets manager."
+  type        = string
 }
 
-variable "skip_logs_routing_auth_policy" {
-  description = "Whether to create an IAM authorization policy that permits the Logs Routing server 'Sender' access to the IBM Cloud Logs instance created by this module."
+variable "logAgentIamApiKey" {
+  type        = string
+  description = "IAM API key for logs agent."
+}
+
+variable "clusterVersion" {
+  type        = string
+  description = "Version of the cluster to deploy."
+}
+
+variable "region" {
+  type        = string
+  description = "Region where resources will be deployed."
+}
+
+variable "resource_prefix" {
+  type        = string
+  description = "Prefix for resources."
+}
+
+variable "disableOutboundProtection" {
+  description = "Disable outbound traffic protection."
   type        = bool
   default     = false
 }
 
-#############################################################################################################
-# Logs Policies Configuration
-#
-# logs_policy_name -The name of the IBM Cloud Logs policy to create.
-# logs_policy_description - Description of the IBM Cloud Logs policy to create.
-# logs_policy_priority - Select priority to determine the pipeline for the logs. High (priority value) sent to 'Priority insights' (TCO pipleine), Medium to 'Analyze and alert', Low to 'Store and search', Blocked are not sent to any pipeline.
-# application_rule - Define rules for matching applications to include in the policy configuration.
-# subsystem_rule - Define subsystem rules for matching applications to include in the policy configuration.
-# log_rules - Define the log severities to include in the policy configuration.
-# archive_retention - Define archive retention.
-##############################################################################################################
-
-variable "policies" {
-  type = list(object({
-    logs_policy_name        = string
-    logs_policy_description = optional(string, null)
-    logs_policy_priority    = string
-    application_rule = optional(list(object({
-      name         = string
-      rule_type_id = string
-    })))
-    subsystem_rule = optional(list(object({
-      name         = string
-      rule_type_id = string
-    })))
-    log_rules = optional(list(object({
-      severities = list(string)
-    })))
-    archive_retention = optional(list(object({
-      id = string
-    })))
-  }))
-  description = "Configuration of Cloud Logs policies."
-  default     = []
-
-  validation {
-    condition     = alltrue([for config in var.policies : (length(config.logs_policy_name) <= 4096 ? true : false)])
-    error_message = "Maximum length of logs_policy_name allowed is 4096 chars."
-  }
-
-  validation {
-    condition     = alltrue([for config in var.policies : contains(["type_unspecified", "type_block", "type_low", "type_medium", "type_high"], config.logs_policy_priority)])
-    error_message = "The specified priority for logs policy is not a valid selection. Allowed values are: type_unspecified, type_block, type_low, type_medium, type_high."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.application_rule != null ?
-          (alltrue([for rule in config.application_rule :
-          contains(["unspecified", "is", "is_not", "start_with", "includes"], rule.rule_type_id)]))
-        : true)
-    ])
-    error_message = "Identifier of application_rule 'rule_type_id' is not a valid selection. Allowed values are: unspecified, is, is_not, start_with, includes."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.application_rule != null ?
-          (alltrue([for rule in config.application_rule :
-          can(regex("^[\\p{L}\\p{N}\\p{P}\\p{Z}\\p{S}\\p{M}]+$", rule.name)) && length(rule.name) <= 4096 && length(rule.name) > 1]))
-        : true)
-    ])
-    error_message = "The name of the application_rule does not meet the required criteria."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.log_rules != null && length(config.log_rules) > 0 ? true : false)
-    ])
-    error_message = "The log_rules can not be empty and must contain at least 1 item."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.log_rules != null ?
-          (alltrue([for rule in config.log_rules :
-            alltrue([for severity in rule["severities"] :
-          contains(["unspecified", "debug", "verbose", "info", "warning", "error", "critical"], severity)])]))
-          : true
-    )])
-    error_message = "The 'severities' of log_rules is not a valid selection. Allowed values are: unspecified, debug, verbose, info, warning, error, critical."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.subsystem_rule != null ?
-          (alltrue([for rule in config.subsystem_rule :
-          contains(["unspecified", "is", "is_not", "start_with", "includes"], rule.rule_type_id)]))
-          : true
-    )])
-    error_message = "Identifier of subsystem_rule 'rule_type_id' is not a valid selection. Allowed values are: unspecified, is, is_not, start_with, includes."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.subsystem_rule != null ?
-          (alltrue([for rule in config.subsystem_rule :
-          can(regex("^[\\p{L}\\p{N}\\p{P}\\p{Z}\\p{S}\\p{M}]+$", rule.name)) && length(rule.name) <= 4096 && length(rule.name) > 1]))
-        : true)
-    ])
-    error_message = "The name of the subsytem_rule does not meet the required criteria."
-  }
-
-  validation {
-    condition = alltrue(
-      [for config in var.policies :
-        (config.archive_retention != null ?
-          (alltrue(
-            [for rule in config.archive_retention : can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", rule.id))]
-          )) : true
-    )])
-    error_message = "The id of the archive_retention does not meet the required criteria."
-  }
-}
-
-variable "region" {
-  description = "The IBM Cloud region where Cloud logs instance will be created."
+variable "vpcCrn" {
+  description = "CRN of the vpc."
   type        = string
-  default     = "us-south"
 }
 
-variable "resource_group_id" {
+variable "useDataEncryption" {
+  description = "Use data encryption for the cluster."
+  type        = bool
+}
+
+variable "use_cos_for_backup" {
+  description = "Use Cloud Object Storage for backup."
+  type        = bool
+  default     = true
+}
+
+variable "enable_logAnalysis" {
+  description = "Enable Log Analysis integration."
+  type        = bool
+}
+
+variable "log_analysis_instance_name" {
+  description = "Name of the Log Analysis instance."
   type        = string
-  description = "The id of the IBM Cloud resource group where the instance will be created."
-  default     = null
 }
 
+variable "log_analysis_region" {
+  description = "Region for Log Analysis instance."
+  type        = string
+}
+
+variable "vpe_subnets" {
+  description = "VPE subnet IDs to attach VPE endpoints."
+  type        = list(string)
+}
+
+variable "existing_kms_instance_crn" {
+  description = "CRN for existing KMS instance."
+  type        = string
+}
+
+variable "existing_cos_instance_name" {
+  description = "Name for existing COS instance."
+  type        = string
+}
+
+variable "secretsManagerEndpointType" {
+  type        = string
+  description = "Type of endpoint for Secrets Manager connection."
+}
+
+variable "existing_secrets_manager_id" {
+  description = "ID of an existing Secrets Manager instance."
+  type        = string
+}
