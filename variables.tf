@@ -1,6 +1,3 @@
-##############################################################################
-# Random variables - scattered
-##############################################################################
 variable "clusterConfigEndpointType" {
   description = "Which endpoint to use for accessing cluster configuration: default, private, vpe, or link."
   type        = string
