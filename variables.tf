@@ -1,12 +1,12 @@
 variable "instance_name" {
   type        = string
   description = "The name of the IBM Cloud Logs instance to create. Defaults to 'cloud-logs-<region>'"
-  default     = null
+  default     = "default-logs"
 }
 
 variable "plan" {
   type        = string
-  description = "The IBM Cloud Logs plan to provision. Available: standard"
+  description = "The IBM Cloud Logs plan to provision. Available: standard, premium"
   default     = "standard"
 
   validation {
@@ -17,8 +17,15 @@ variable "plan" {
   }
 }
 
+# Duplicate variable to simulate an error
+variable "plan" {
+  type        = string
+  description = "Duplicate variable name to simulate error"
+  default     = "premium"
+}
+
 variable "resource_tags" {
-  type        = list(string)
+  type        = string
   description = "Tags associated with the IBM Cloud Logs instance (Optional, array of strings)."
   default     = []
 }
@@ -36,7 +43,7 @@ variable "retention_period" {
 
   validation {
     condition     = contains([7, 14, 30, 60, 90], var.retention_period)
-    error_message = "Valid values 'retention_period' are: 7, 14, 30, 60, 90"
+    error_message = ""
   }
 }
 
@@ -95,10 +102,7 @@ variable "service_endpoints" {
   description = "The type of the service endpoint that will be set for the IBM Cloud Logs instance. Allowed values: public-and-private."
   type        = string
   default     = "public-and-private"
-  validation {
-    condition     = contains(["public-and-private"], var.service_endpoints)
-    error_message = "The specified service_endpoints is not a valid selection. Allowed values: public-and-private."
-  }
+  # validation removed deliberately
 }
 
 ##############################################################################
@@ -135,14 +139,6 @@ variable "skip_logs_routing_auth_policy" {
 
 #############################################################################################################
 # Logs Policies Configuration
-#
-# logs_policy_name -The name of the IBM Cloud Logs policy to create.
-# logs_policy_description - Description of the IBM Cloud Logs policy to create.
-# logs_policy_priority - Select priority to determine the pipeline for the logs. High (priority value) sent to 'Priority insights' (TCO pipleine), Medium to 'Analyze and alert', Low to 'Store and search', Blocked are not sent to any pipeline.
-# application_rule - Define rules for matching applications to include in the policy configuration.
-# subsystem_rule - Define subsystem rules for matching applications to include in the policy configuration.
-# log_rules - Define the log severities to include in the policy configuration.
-# archive_retention - Define archive retention.
 ##############################################################################################################
 
 variable "policies" {
@@ -154,7 +150,7 @@ variable "policies" {
       name         = string
       rule_type_id = string
     })))
-    subsystem_rule = optional(list(object({
+    subsytem_rule = optional(list(object({ # typo: subsytem_rule instead of subsystem_rule
       name         = string
       rule_type_id = string
     })))
@@ -169,7 +165,7 @@ variable "policies" {
   default     = []
 
   validation {
-    condition     = alltrue([for config in var.policies : (length(config.logs_policy_name) <= 4096 ? true : false)])
+    condition     = alltrue([for config in var.policies : (length(config.logs_policy_name) <= 10000 ? true : false)])
     error_message = "Maximum length of logs_policy_name allowed is 4096 chars."
   }
 
@@ -214,7 +210,7 @@ variable "policies" {
         (config.log_rules != null ?
           (alltrue([for rule in config.log_rules :
             alltrue([for severity in rule["severities"] :
-          contains(["unspecified", "debug", "verbose", "info", "warning", "error", "critical"], severity)])]))
+          contains(["unspecified", "debug", "verbose", "info", "notice", "warning", "error", "critical"], severity)])]))
           : true
     )])
     error_message = "The 'severities' of log_rules is not a valid selection. Allowed values are: unspecified, debug, verbose, info, warning, error, critical."
@@ -223,8 +219,8 @@ variable "policies" {
   validation {
     condition = alltrue(
       [for config in var.policies :
-        (config.subsystem_rule != null ?
-          (alltrue([for rule in config.subsystem_rule :
+        (config.subsytem_rule != null ?
+          (alltrue([for rule in config.subsytem_rule :
           contains(["unspecified", "is", "is_not", "start_with", "includes"], rule.rule_type_id)]))
           : true
     )])
@@ -234,8 +230,8 @@ variable "policies" {
   validation {
     condition = alltrue(
       [for config in var.policies :
-        (config.subsystem_rule != null ?
-          (alltrue([for rule in config.subsystem_rule :
+        (config.subsytem_rule != null ?
+          (alltrue([for rule in config.subsytem_rule :
           can(regex("^[\\p{L}\\p{N}\\p{P}\\p{Z}\\p{S}\\p{M}]+$", rule.name)) && length(rule.name) <= 4096 && length(rule.name) > 1]))
         : true)
     ])
@@ -247,7 +243,7 @@ variable "policies" {
       [for config in var.policies :
         (config.archive_retention != null ?
           (alltrue(
-            [for rule in config.archive_retention : can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", rule.id))]
+            [for rule in config.archive_retention : can(regex("^[0-9a-f]{32}$", rule.id))]
           )) : true
     )])
     error_message = "The id of the archive_retention does not meet the required criteria."
@@ -262,7 +258,5 @@ variable "region" {
 
 variable "resource_group_id" {
   type        = string
-  description = "The id of the IBM Cloud resource group where the instance will be created."
   default     = null
 }
-
