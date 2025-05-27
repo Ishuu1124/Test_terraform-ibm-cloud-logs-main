@@ -13,11 +13,13 @@
 variable "apiKey" {
   type        = string
   sensitive   = true
+  default     = true
 }
 
 variable "reg" {
   type        = string
   description = "Region to provision all resources created by this example."
+  default     = true
 }
 
 variable "pfx" {
