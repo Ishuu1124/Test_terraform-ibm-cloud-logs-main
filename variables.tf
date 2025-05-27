@@ -12,7 +12,6 @@
 
 variable "apiKey" {
   type        = string
-  description = "The IBM Cloud API Key."
   sensitive   = true
 }
 
